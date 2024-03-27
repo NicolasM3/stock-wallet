@@ -1,0 +1,30 @@
+services:
+  postgres:
+    image: postgres:12
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    networks:
+      - stock-network
+
+  flyway:
+    image: flyway/flyway:9
+    container_name: flyway
+    platform: linux/amd64
+    volumes:
+      - "./sql:/app/sql"
+    environment:
+      - FLYWAY_CONNECT_RETRIES=60
+      - FLYWAY_LOCATIONS=filesystem:/app/sql
+      - FLYWAY_SCHEMAS=${FLYWAY_SCHEMAS}
+    command: -url=jdbc:postgresql://postgres/${POSTGRES_DB} -user=${POSTGRES_USER} -password=${POSTGRES_PASSWORD} -connectRetries=60 migrate
+    depends_on:
+      - postgres
+    networks:
+      - stock-network
+
+networks:
+  stock-network:
