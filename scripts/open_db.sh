@@ -1,4 +1,4 @@
-source ../.env
+source .env
 
 export PGPASSWORD=$POSTGRES_PASSWORD
 

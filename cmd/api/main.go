@@ -8,6 +8,7 @@ import (
 	_ "github.com/lib/pq"
 	"os"
 	"stock-wallet/cmd/api/routes"
+	"stock-wallet/internal/domain"
 )
 
 func main() {
@@ -18,13 +19,16 @@ func main() {
 		e.Logger.Fatal(err)
 		os.Exit(1)
 	}
+
 	defer connPool.Close()
+
+	domain.InitDB(connPool)
 
 	e.Logger.Fatal(e.Start(":8080"))
 }
 
 func openDBConnection() (*pgxpool.Pool, error) {
-	connPoolStr := "postgres://stock-wallet-user:stock-wallet-password@localhost/postgres?sslmode=disable"
+	connPoolStr := "postgres://stock-wallet-user:stock-wallet-password@localhost/stock-wallet-db?sslmode=disable"
 
 	connPool, err := pgxpool.New(context.Background(), connPoolStr)
 	if err != nil {
