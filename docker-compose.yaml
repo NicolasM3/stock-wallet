@@ -26,5 +26,12 @@ services:
     networks:
       - stock-network
 
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    networks:
+      - stock-network
+
 networks:
   stock-network:

@@ -54,7 +54,17 @@ func GetStockById(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, "id is required")
 	}
 
+	redisStock, _ := repository.GetStockByIdInRedis(id)
+	if redisStock != nil {
+		return c.JSON(http.StatusOK, redisStock)
+	}
+
 	stock, err := repository.GetStockById(ctx, id)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, err.Error())
+	}
+
+	err = repository.StoreStockInRedis(stock)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, err.Error())
 	}
@@ -78,6 +88,11 @@ func UpdateStock(c echo.Context) error {
 	updatedStock := updateFields(c, storedStock)
 
 	stock, err := repository.UpdateStock(ctx, id, updatedStock)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, err.Error())
+	}
+
+	err = repository.StoreStockInRedis(stock)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, err.Error())
 	}
