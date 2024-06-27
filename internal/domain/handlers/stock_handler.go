@@ -4,12 +4,22 @@ import (
 	"encoding/json"
 	"github.com/labstack/echo/v4"
 	"net/http"
-	"stock-wallet/internal/domain/.gen/stock-wallet-db/public/model"
-	"stock-wallet/internal/repository"
+	"stock-wallet/internal/.gen/stock-wallet-db/public/model"
+	"stock-wallet/internal/domain/repository/database"
+	redisRepo "stock-wallet/internal/domain/repository/redisRepo"
 	"strconv"
 )
 
-func CreateStock(c echo.Context) error {
+type Service struct {
+	database *database.Database
+	redis    *redisRepo.Redis
+}
+
+func NewStockService(db *database.Database, r *redisRepo.Redis) *Service {
+	return &Service{db, r}
+}
+
+func (s Service) CreateStock(c echo.Context) error {
 	ctx := c.Request().Context()
 
 	var stock model.Stock
@@ -17,7 +27,7 @@ func CreateStock(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, err.Error())
 	}
 
-	stock, err := repository.CreateStock(ctx, stock)
+	stock, err := s.database.CreateStock(ctx, stock)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, err.Error())
 	}
@@ -25,7 +35,7 @@ func CreateStock(c echo.Context) error {
 	return c.JSON(http.StatusOK, stock)
 }
 
-func GetStocks(c echo.Context) error {
+func (s Service) GetStocks(c echo.Context) error {
 	ctx := c.Request().Context()
 	page, _ := strconv.Atoi(c.QueryParam("page"))
 	pageSize, _ := strconv.Atoi(c.QueryParam("pageSize"))
@@ -37,7 +47,7 @@ func GetStocks(c echo.Context) error {
 		pageSize = 10
 	}
 
-	stocks, err := repository.GetStock(ctx, page, pageSize)
+	stocks, err := s.database.GetStock(ctx, page, pageSize)
 	if err != nil {
 		// Handle error
 		return c.JSON(http.StatusInternalServerError, err.Error())
@@ -46,7 +56,7 @@ func GetStocks(c echo.Context) error {
 	return c.JSON(http.StatusOK, stocks)
 }
 
-func GetStockById(c echo.Context) error {
+func (s Service) GetStockById(c echo.Context) error {
 	ctx := c.Request().Context()
 
 	id := c.Param("id")
@@ -54,17 +64,17 @@ func GetStockById(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, "id is required")
 	}
 
-	redisStock, _ := repository.GetStockByIdInRedis(id)
+	redisStock, _ := s.redis.GetStockByIdInRedis(id)
 	if redisStock != nil {
 		return c.JSON(http.StatusOK, redisStock)
 	}
 
-	stock, err := repository.GetStockById(ctx, id)
+	stock, err := s.database.GetStockById(ctx, id)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, err.Error())
 	}
 
-	err = repository.StoreStockInRedis(stock)
+	err = s.redis.StoreStockInRedis(stock)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, err.Error())
 	}
@@ -72,7 +82,7 @@ func GetStockById(c echo.Context) error {
 	return c.JSON(http.StatusOK, stock)
 }
 
-func UpdateStock(c echo.Context) error {
+func (s Service) UpdateStock(c echo.Context) error {
 	ctx := c.Request().Context()
 
 	id := c.Param("id")
@@ -80,19 +90,19 @@ func UpdateStock(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, "id is required")
 	}
 
-	storedStock, err := repository.GetStockById(ctx, id)
+	storedStock, err := s.database.GetStockById(ctx, id)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, err.Error())
 	}
 
 	updatedStock := updateFields(c, storedStock)
 
-	stock, err := repository.UpdateStock(ctx, id, updatedStock)
+	stock, err := s.database.UpdateStock(ctx, id, updatedStock)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, err.Error())
 	}
 
-	err = repository.StoreStockInRedis(stock)
+	err = s.redis.StoreStockInRedis(stock)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, err.Error())
 	}
@@ -123,7 +133,7 @@ func updateFields(c echo.Context, stock model.Stock) model.Stock {
 	return stock
 }
 
-func DeleteStock(c echo.Context) error {
+func (s Service) DeleteStock(c echo.Context) error {
 	ctx := c.Request().Context()
 
 	id := c.Param("id")
@@ -131,7 +141,7 @@ func DeleteStock(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, "id is required")
 	}
 
-	err := repository.DeleteStock(ctx, id)
+	err := s.database.DeleteStock(ctx, id)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, err.Error())
 	}

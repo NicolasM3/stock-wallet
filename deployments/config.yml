@@ -1,0 +1,8 @@
+database:
+  user: stock-wallet-user
+  password: stock-wallet-password
+  database: stock-wallet-db
+
+cache:
+    host: localhost
+    port: 6379
