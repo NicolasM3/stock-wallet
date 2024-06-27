@@ -34,27 +34,40 @@ func New(config Config) (*Database, error) {
 	}, nil
 }
 
-func (r *Database) GetStock(ctx context.Context, page int, pageSize int) ([]*model.Stock, error) {
+func (r *Database) GetStock(ctx context.Context, page int, pageSize int) (model.StockListReponse, error) {
 	offset := (page - 1) * pageSize
 	rows, err := r.Conn.Query(ctx, "select * from stock LIMIT $1 OFFSET $2", pageSize, offset)
 	if err != nil {
-		return nil, err
+		return model.StockListReponse{}, err
 	}
 
 	var stocks []*model.Stock
 	for rows.Next() {
 		var stock model.Stock
 		if err := rows.Scan(&stock.ID, &stock.Code, &stock.Name, &stock.CurrentPrice, &stock.CreatedAt, &stock.LastUpdate, &stock.Deleted); err != nil {
-			return nil, err
+			return model.StockListReponse{}, err
 		}
 		stocks = append(stocks, &stock)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return model.StockListReponse{}, err
 	}
 
-	return stocks, nil
+	var total int
+	err = r.Conn.QueryRow(ctx, "SELECT COUNT(*) FROM stock").Scan(&total)
+	if err != nil {
+		return model.StockListReponse{}, err
+	}
+
+	return model.StockListReponse{
+		Data: stocks,
+		Pagination: model.Pagination{
+			Page:     page,
+			PageSize: pageSize,
+			Total:    total,
+		},
+	}, nil
 }
 
 func (r *Database) GetStockById(ctx context.Context, id string) (model.Stock, error) {
